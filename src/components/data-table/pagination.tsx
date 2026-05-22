@@ -18,26 +18,38 @@ export function Pagination({ page, totalPages, total, pageSize, onPageChange }: 
   return (
     <div className="flex items-center justify-between">
       <p className="text-sm text-muted-foreground">
-        {total === 0
-          ? "0 resultados"
-          : `Mostrando ${from}–${to} de ${total} resultado${total === 1 ? "" : "s"}`}
+        {total === 0 ? (
+          "0 resultados"
+        ) : (
+          <>
+            Mostrando{" "}
+            <span className="font-semibold text-foreground">
+              {from}–{to}
+            </span>{" "}
+            de{" "}
+            <span className="font-semibold text-foreground">{total}</span>{" "}
+            resultado{total === 1 ? "" : "s"}
+          </>
+        )}
       </p>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1.5">
         <Button
           variant="outline"
           size="sm"
+          className="rounded-lg"
           onClick={() => onPageChange(page - 1)}
           disabled={page <= 1}
         >
           <ChevronLeft className="h-4 w-4" />
           Anterior
         </Button>
-        <span className="px-2 text-sm">
-          Página {page} de {totalPages}
+        <span className="px-2 text-sm text-muted-foreground">
+          <span className="font-semibold text-foreground">{page}</span> / {totalPages}
         </span>
         <Button
           variant="outline"
           size="sm"
+          className="rounded-lg"
           onClick={() => onPageChange(page + 1)}
           disabled={page >= totalPages}
         >

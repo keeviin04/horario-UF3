@@ -1,6 +1,7 @@
 "use client";
 
 import { Printer } from "lucide-react";
+import { motion } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { horaAMinutos } from "@/lib/validations/comun";
 import { ETIQUETA_DIA, type DiaSemana } from "@/lib/enums";
@@ -54,8 +55,6 @@ interface LayoutEntry {
  * Paso 2 — ancho de columna:
  *   El número total de columnas de un evento es el índice máximo entre
  *   todos los eventos que se solapan con él + 1.
- *   Así, cuando un solapamiento termina, el siguiente evento puede
- *   expandirse a todo el ancho disponible.
  */
 function calcularLayout(events: AsignacionCelda[]): Map<string, LayoutEntry> {
   const result = new Map<string, LayoutEntry>();
@@ -67,7 +66,7 @@ function calcularLayout(events: AsignacionCelda[]): Map<string, LayoutEntry> {
 
   // Paso 1: asignar columna greedy
   const colEndTimes: number[] = [];
-  const assigned = new Map<string, number>(); // id → col index
+  const assigned = new Map<string, number>();
 
   for (const ev of sorted) {
     const start = horaAMinutos(ev.horaInicio);
@@ -93,7 +92,6 @@ function calcularLayout(events: AsignacionCelda[]): Map<string, LayoutEntry> {
       if (other.id === ev.id) continue;
       const oStart = horaAMinutos(other.horaInicio);
       const oEnd = horaAMinutos(other.horaFin);
-      // Solapamiento: el otro empieza antes de que este termine y termina después de que este empiece
       if (oStart < end && oEnd > start) {
         const otherCol = assigned.get(other.id)!;
         if (otherCol > maxCol) maxCol = otherCol;
@@ -123,16 +121,20 @@ export function HorarioGrid({ asignaciones, titulo, secundario }: HorarioGridPro
     if (fin > maxMin) maxMin = fin;
   }
 
-  // Redondear a la hora más cercana con 30 min de margen
+  // Redondear a la hora más cercana
   minMin = Math.floor(minMin / 60) * 60;
   maxMin = Math.ceil(maxMin / 60) * 60;
 
   const totalMin = maxMin - minMin;
   const gridHeight = totalMin * PX_POR_MIN;
 
-  // Marcadores de hora
+  // Marcadores de hora completa
   const horas: number[] = [];
   for (let m = minMin; m <= maxMin; m += 60) horas.push(m);
+
+  // Marcadores de media hora (solo las intermedias)
+  const medias: number[] = [];
+  for (let m = minMin + 30; m < maxMin; m += 60) medias.push(m);
 
   // Asignaciones agrupadas por día
   const porDia: Record<string, AsignacionCelda[]> = {};
@@ -175,10 +177,10 @@ export function HorarioGrid({ asignaciones, titulo, secundario }: HorarioGridPro
         <Button
           variant="outline"
           size="sm"
-          className="ml-auto"
+          className="ml-auto gap-2"
           onClick={() => window.print()}
         >
-          <Printer className="mr-2 h-4 w-4" />
+          <Printer className="h-4 w-4" />
           Imprimir / PDF
         </Button>
       </div>
@@ -191,18 +193,18 @@ export function HorarioGrid({ asignaciones, titulo, secundario }: HorarioGridPro
       )}
 
       {/* Cuadrícula */}
-      <div className="overflow-x-auto rounded-lg border bg-card">
+      <div className="horario-grid overflow-x-auto rounded-lg border bg-card">
         <div className="flex" style={{ minWidth: 560 }}>
           {/* Columna de horas */}
           <div className="shrink-0 border-r" style={{ width: TIME_COL_W }}>
-            <div className="border-b bg-muted/40 py-3 text-center text-xs font-medium text-muted-foreground">
+            <div className="border-b bg-muted/50 py-3 text-center text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
               Hora
             </div>
             <div className="relative" style={{ height: gridHeight }}>
               {horas.map((m) => (
                 <span
                   key={m}
-                  className="absolute right-2 text-xs text-muted-foreground"
+                  className="absolute right-2 tabular-nums text-[11px] text-muted-foreground"
                   style={{ top: (m - minMin) * PX_POR_MIN - 8 }}
                 >
                   {minToHora(m)}
@@ -212,34 +214,53 @@ export function HorarioGrid({ asignaciones, titulo, secundario }: HorarioGridPro
           </div>
 
           {/* Columnas de días */}
-          {DIAS_LABORABLES.map((dia) => {
+          {DIAS_LABORABLES.map((dia, diaIdx) => {
             const layout = calcularLayout(porDia[dia]);
             return (
-              <div key={dia} className="min-w-0 flex-1 border-l first:border-l-0">
-                <div className="border-b bg-muted/40 py-3 text-center text-xs font-semibold">
+              <div
+                key={dia}
+                className={`min-w-0 flex-1 border-l first:border-l-0 ${diaIdx % 2 === 1 ? "bg-muted/[0.03]" : ""}`}
+              >
+                <div className="border-b bg-muted/50 py-3 text-center text-xs font-semibold uppercase tracking-wide">
                   {ETIQUETA_DIA[dia]}
                 </div>
                 <div className="relative" style={{ height: gridHeight }}>
-                  {/* Líneas de hora */}
+                  {/* Líneas de hora completa */}
                   {horas.map((m) => (
                     <div
                       key={m}
-                      className="absolute w-full border-t border-border/40"
+                      className="absolute w-full border-t border-border/50"
+                      style={{ top: (m - minMin) * PX_POR_MIN }}
+                    />
+                  ))}
+
+                  {/* Líneas de media hora (más tenues, punteadas) */}
+                  {medias.map((m) => (
+                    <div
+                      key={m}
+                      className="absolute w-full border-t border-dashed border-border/25"
                       style={{ top: (m - minMin) * PX_POR_MIN }}
                     />
                   ))}
 
                   {/* Asignaciones con layout de solapamiento */}
-                  {porDia[dia].map((a) => {
+                  {porDia[dia].map((a, idx) => {
                     const { col, cols } = layout.get(a.id)!;
                     const colPct = 100 / cols;
                     const top = toY(a.horaInicio);
                     const height = Math.max(toH(a) - 2, 18);
 
                     return (
-                      <div
+                      <motion.div
                         key={a.id}
-                        className="absolute overflow-hidden rounded border-l-[3px] px-1.5 py-0.5 shadow-sm"
+                        initial={{ opacity: 0, scaleY: 0.85 }}
+                        animate={{ opacity: 1, scaleY: 1 }}
+                        transition={{
+                          duration: 0.18,
+                          ease: "easeOut",
+                          delay: idx * 0.03,
+                        }}
+                        className="absolute overflow-hidden rounded-md border-l-[3px] px-1.5 py-0.5 shadow-sm ring-1 ring-inset ring-black/5 transition-all duration-100 hover:brightness-[0.92] hover:shadow-md"
                         style={{
                           top: top + 1,
                           height,
@@ -247,6 +268,8 @@ export function HorarioGrid({ asignaciones, titulo, secundario }: HorarioGridPro
                           width: `calc(${colPct}% - 4px)`,
                           borderLeftColor: a.asignatura.color,
                           backgroundColor: `${a.asignatura.color}20`,
+                          transformOrigin: "top",
+                          cursor: "default",
                         }}
                         title={tooltipCompleto(a)}
                       >
@@ -266,7 +289,7 @@ export function HorarioGrid({ asignaciones, titulo, secundario }: HorarioGridPro
                             {a.horaInicio}–{a.horaFin}
                           </p>
                         )}
-                      </div>
+                      </motion.div>
                     );
                   })}
                 </div>
@@ -276,17 +299,24 @@ export function HorarioGrid({ asignaciones, titulo, secundario }: HorarioGridPro
         </div>
       </div>
 
-      {/* Leyenda de asignaturas (útil en vista semanal) */}
+      {/* Leyenda de asignaturas */}
       {asignaciones.length > 0 && (
-        <div className="mt-4 flex flex-wrap gap-3">
+        <div className="mt-4 flex flex-wrap gap-2">
           {[
             ...new Map(
               asignaciones.map((a) => [a.asignatura.nombre, a.asignatura]),
             ).values(),
           ].map((s) => (
-            <div key={s.nombre} className="flex items-center gap-1.5 text-xs">
+            <div
+              key={s.nombre}
+              className="flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium"
+              style={{
+                backgroundColor: `${s.color}18`,
+                color: s.color,
+              }}
+            >
               <span
-                className="h-3 w-3 rounded-sm"
+                className="h-2 w-2 rounded-full"
                 style={{ backgroundColor: s.color }}
               />
               {s.nombre}
