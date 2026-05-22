@@ -4,7 +4,7 @@
   "private": true,
   "description": "Aplicación de gestión de horarios personales del departamento UF3",
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -H 0.0.0.0 -p 3001",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
@@ -34,6 +34,7 @@
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
     "lucide-react": "^0.460.0",
+    "motion": "^12.40.0",
     "next": "^15.0.3",
     "next-auth": "5.0.0-beta.25",
     "react": "^18.3.1",
